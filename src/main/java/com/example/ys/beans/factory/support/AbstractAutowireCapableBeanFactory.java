@@ -1,7 +1,11 @@
 package com.example.ys.beans.factory.support;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.example.ys.*;
+import com.example.ys.beans.factory.PropertyValue;
+import com.example.ys.beans.factory.PropertyValues;
 import com.example.ys.beans.factory.config.BeanDefinition;
+import com.example.ys.beans.factory.config.BeanReference;
 
 import java.lang.reflect.Constructor;
 
@@ -14,12 +18,31 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
         Object bean = null;
         try {
             bean = createBeanInstance(beanDefinition, name, args);
+            applyBeanProperties(name, bean, beanDefinition);
         }catch (Exception e) {
             throw new BeanException("instantiation of bean failed", e);
         }
 
         addSingleton(name, bean);
         return bean;
+    }
+
+    protected void applyBeanProperties(String beanName, Object bean, BeanDefinition beanDefinition) {
+        try {
+            PropertyValues propertyValues = beanDefinition.getPropertyValues();
+            for (PropertyValue pv: propertyValues.getPropertyValues()) {
+                String name = pv.getName();
+                Object value = pv.getValue();
+                if (value instanceof BeanReference) {
+                    BeanReference br = (BeanReference) value;
+                    value = getBean(br.getBeanName());
+                }
+
+                BeanUtil.setFieldValue(bean, name, value);
+            }
+        } catch (Exception e) {
+            throw new BeanException("Error setting property values: " + beanName);
+        }
     }
 
     private Object createBeanInstance(BeanDefinition beanDefinition, String name, Object[] args) {
